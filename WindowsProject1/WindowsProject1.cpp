@@ -24,7 +24,7 @@ float BollSpeed = 10;
 
 int PlatformWidth = 100;
 int PlatformHeight = 20;
-int Speed = 5;
+int Speed = 3;
 
 //----------------------------------------Техчасть-----------------------------------------//
 
@@ -139,7 +139,7 @@ void brickcreate(HWND hWnd) {
 void StartBattleAnimation(HWND hWnd)
 {
     GameStatus = true;
-    SetTimer(hWnd, 1, 8, NULL);
+    SetTimer(hWnd, 1, 64, NULL);
     brickcreate(hWnd);
 }
 
@@ -164,14 +164,17 @@ void GamePlay(HWND hWnd) {
 
     if (newPlatformX >= 0 && newPlatformX <= width - PlatformWidth) {
         PlayerPosX += static_cast<int>(Speed * PlayerVector);
-        if (BollPosY > height - PlayerPosY && BollPosY < height - PlayerPosY + PlatformHeight) {
-            if (BollPosX > PlayerPosX + 5 && BollPosX < PlayerPosX - 5) {
-                BollPosX += static_cast<int>(Speed * PlayerVector);
-            }
-            else if (BollPosX > PlayerPosX + PlatformWidth - 5 && BollPosX < PlayerPosX + PlatformWidth + 5) {
-                BollPosX += static_cast<int>(Speed * PlayerVector);
-            }
-        }
+        //if (BollPosY + BallSize >= platformY && BollPosY <= platformY + PlatformHeight) {
+        //    // Если мяч находится над платформой по вертикали
+        //    if (BollPosX + BallSize >= platformX && BollPosX <= platformX + PlatformWidth) {
+        //        // Мяч уже столкнулся с платформой - двигаем его вместе с ней
+        //        BollPosX += static_cast<int>(Speed * PlayerVector);
+
+        //        // Ограничиваем позицию мяча, чтобы не выходил за границы экрана
+        //        if (BollPosX < 0) BollPosX = 0;
+        //        if (BollPosX > width - BallSize) BollPosX = width - BallSize;
+        //    }
+        //}
     }
 
     // Движение мяча
@@ -245,37 +248,38 @@ void GamePlay(HWND hWnd) {
                 BollAngle = atan2(sin(BollAngle) - 2 * dotProduct * normalY,
                     cos(BollAngle) - 2 * dotProduct * normalX);
 
+
                 BollAngle += (rand() % 10 - 5) * 0.01f;
                 break;
             }
-        }
+            else 
+            {
+                if (CheckY + BallSize >= platformY &&
+                    CheckY <= platformY + PlatformHeight &&
+                    CheckX + BallSize >= platformX &&
+                    CheckX <= platformX + PlatformWidth) {
 
-        //Платформа края
-        if (CheckY + BallSize >= platformY &&
-            CheckY <= platformY + PlatformHeight &&
-            CheckX + BallSize >= platformX &&
-            CheckX <= platformX + PlatformWidth) {
+                    if (cos(BollAngle) > 0 && CheckX + BallSize / 2 < platformX) {
+                        BollPosX = platformX - BallSize - 5;
+                        BollAngle = 3.14159f - BollAngle;
+                    }
+                    else if (cos(BollAngle) < 0 && CheckX + BallSize / 2 > platformX + PlatformWidth) {
+                        BollPosX = platformX + PlatformWidth + 5;
+                        BollAngle = 3.14159f - BollAngle;
+                    }
+                    else {
+                        BollPosY = platformY - BallSize - 1;
+                        BollAngle = -BollAngle;
+                    }
 
-            BollPosX = CheckX;
-            BollPosY = CheckY;
+                    BollAngle += (rand() % 10 - 5) * 0.01f;
 
-
-            if (BollPosX + BallSize / 2.0f < platformX && cos(BollAngle) > 0) {
-                BollPosX = platformX - BallSize - 5;
-                BollAngle = 3.14159f - BollAngle;
-
+                    // Выходим из цикла после обработки столкновения
+                }
             }
-            else if (BollPosX + BallSize / 2.0f > platformX + PlatformWidth && cos(BollAngle) < 0) {
-                BollPosX = platformX + PlatformWidth + 5;
-                BollAngle = 3.14159f - BollAngle;
-            }
-            else {
-                BollPosY = platformY - BallSize;
-                BollAngle = -BollAngle;
-            }
+        } 
 
-            BollAngle += (rand() % 10 - 5) * 0.01f;
-        }
+        
 
         //кирпичи
         for (int y = 0; y < BrickLines; y++) {
