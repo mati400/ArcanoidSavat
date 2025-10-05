@@ -322,7 +322,7 @@ void GamePlay(HWND hWnd) {
 
     }
 
-
+    
 
     InvalidateRect(hWnd, NULL, TRUE);
 }
