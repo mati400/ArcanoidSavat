@@ -37,9 +37,7 @@ int BollPosY = 300;
 float BollAngle = 45.0f * (3.14159f / 180.0f);
 float BollVectorX = 0;
 float BollVectorY = 0;
-
-float criticalSum = 0;
-float checkcriticalSum = 0;
+int brickCount = BrickLines * BrickStolbs;
 
 struct brickst {
     int posx = 0;
@@ -142,7 +140,7 @@ void brickcreate(HWND hWnd) {
 void StartBattleAnimation(HWND hWnd)
 {
     GameStatus = true;
-    SetTimer(hWnd, 1, 64, NULL);
+    SetTimer(hWnd, 1, 18, NULL);
     brickcreate(hWnd);
 }
 
@@ -150,6 +148,76 @@ void StopBattleAnimation(HWND hWnd)
 {
     GameStatus = false;
     KillTimer(hWnd, 1);
+}
+
+struct Corner {
+    float x, y;
+};
+
+struct CollisionResult {
+    bool collision;
+    float newAngle;  
+    int newPosX, newPosY;    
+};
+
+CollisionResult CheckObjectCollision(float ballCheckX, float ballCheckY, float ballRadius,
+    float currentBallAngle, float objX, float objY, float objWidth, float objHeight) {
+    CollisionResult result = { false, currentBallAngle, 0, 0 };
+
+    float ballCenterX = ballCheckX + ballRadius;
+    float ballCenterY = ballCheckY + ballRadius;
+
+    //стены объекта
+    float closestX = max(objX, min(ballCenterX, objX + objWidth));
+    float closestY = max(objY, min(ballCenterY, objY + objHeight));
+
+    float dx = ballCenterX - closestX;
+    float dy = ballCenterY - closestY;
+    float distance = sqrt(dx * dx + dy * dy);
+
+    if (distance < ballRadius) {
+        result.collision = true;
+        float normalX = dx / distance;
+        float normalY = dy / distance;
+
+        float dotProduct = cos(currentBallAngle) * normalX + sin(currentBallAngle) * normalY;
+        result.newAngle = atan2(sin(currentBallAngle) - 2 * dotProduct * normalY, cos(currentBallAngle) - 2 * dotProduct * normalX);
+
+        result.newPosX = static_cast<int>(closestX + normalX * ballRadius - ballRadius);
+        result.newPosY = static_cast<int>(closestY + normalY * ballRadius - ballRadius);
+        return result;
+    }
+
+    //Углы объекта
+    Corner corners[4] = {
+        {objX, objY},
+        {objX + objWidth, objY},
+        {objX, objY + objHeight},
+        {objX + objWidth, objY + objHeight}
+    };
+
+   /* for (int i = 0; i < 4; i++) {
+        float cornerDx = ballCenterX - corners[i].x;
+        float cornerDy = ballCenterY - corners[i].y;
+        float cornerDistance = sqrt(cornerDx * cornerDx + cornerDy * cornerDy);
+
+        if (cornerDistance < ballRadius + 2.0f) {
+            result.collision = true;
+            float normalX = cornerDx / cornerDistance;
+            float normalY = cornerDy / cornerDistance;
+
+            float dotProduct = cos(currentBallAngle) * normalX + sin(currentBallAngle) * normalY;
+            result.newAngle = atan2(sin(currentBallAngle) - 2 * dotProduct * normalY,
+                cos(currentBallAngle) - 2 * dotProduct * normalX);
+
+            result.newPosX = 0;
+            result.newPosY = 0;
+
+            return result;
+        }
+    }*/
+
+    return result;
 }
 
 void GamePlay(HWND hWnd) {
@@ -170,13 +238,14 @@ void GamePlay(HWND hWnd) {
     }
 
     // Движение мяча
-    int NewBollPosX = BollPosX + static_cast<int>(BollSpeed * cos(BollAngle))/2;
-    int NewBollPosY = BollPosY + static_cast<int>(BollSpeed * sin(BollAngle))/2;
+    int NewBollPosX = BollPosX + static_cast<int>(BollSpeed * cos(BollAngle)) / 2;
+    int NewBollPosY = BollPosY + static_cast<int>(BollSpeed * sin(BollAngle)) / 2;
 
     int DistanceX = NewBollPosX - BollPosX;
     int DistanceY = NewBollPosY - BollPosY;
 
     int steps = max(abs(DistanceX), abs(DistanceY));
+    bool collisionOccurred = false;
 
     // Проверка столкновений 
     for (int i = 0; i <= steps; i++) {
@@ -184,228 +253,188 @@ void GamePlay(HWND hWnd) {
         int CheckX = BollPosX + round(DistanceX * t);
         int CheckY = BollPosY + round(DistanceY * t);
 
-        bool collision = false;
-        //Стены
-        if (CheckX <= 0) {
-            BollPosX = CheckX+BallSize/2;
+        float ballRadius = BallSize / 2.0f;
+        float ballCenterX = CheckX + ballRadius;  // Исправлено: ballRadius вместо BallSize/2.0f
+        float ballCenterY = CheckY + ballRadius;
+
+        // Стены
+        // Стены
+        if (ballCenterX - ballRadius <= 0) {
+            // Отражаем от левой стены и отодвигаем от стены
+            BollPosX = ballRadius + 1;  // Отодвигаем от стены
             BollAngle = 3.14159f - BollAngle;
+            collisionOccurred = true;
             break;
         }
-        else if (CheckX >= width - BallSize) {
-            BollPosX = width - BallSize - 1;
+        else if (ballCenterX + ballRadius >= width) {
+            // Отражаем от правой стены и отодвигаем от стены
+            BollPosX = width - BallSize - 1;  // Отодвигаем от стены
             BollAngle = 3.14159f - BollAngle;
+            collisionOccurred = true;
             break;
         }
-        if (CheckY <= 0) {
-            BollPosY = BallSize / 2;             
+
+        if (ballCenterY - ballRadius <= 0) {
+            // Отражаем от верхней стены и отодвигаем от стены
+            BollPosY = ballRadius + 1;  // Отодвигаем от стены
             BollAngle = -BollAngle;
+            collisionOccurred = true;
             break;
         }
-        if (BollPosY > height) { 
+        if (CheckY > height) {
             BollPosX = width / 2;
             BollPosY = height / 2;
             BollAngle = 45.0f * (3.14159f / 180.0f);
             StopBattleAnimation(hWnd);
+            collisionOccurred = true;
             break;
         }
 
-        //Платформа углы
-        struct Corner {
-            float x, y;
-        };
+        // Проверка столкновения с платформой
+        CollisionResult platformCollision = CheckObjectCollision(
+            CheckX, CheckY, ballRadius,
+            BollAngle,
+            platformX, platformY, PlatformWidth, PlatformHeight
+        );
 
-        Corner corners[4] = {
-       {platformX, platformY}, // левый верхний
-       {platformX + PlatformWidth, platformY}, // правый верхний
-       {platformX, platformY + PlatformHeight}, // левый нижний
-       {platformX + PlatformWidth, platformY + PlatformHeight} // правый нижний
-        };
+        if (platformCollision.collision) {
+            BollAngle = platformCollision.newAngle;
+            BollAngle += (rand() % 10 - 5) * 0.01f;
 
-        float ballRadius = BallSize / 2.0f;
-        float ballCenterX = CheckX + BallSize / 2.0f;
-        float ballCenterY = CheckY + BallSize / 2.0f;
-
-        //проверка столкновения с платформой
-        for (int i = 0; i < 4; i++) {
-            float dx1 = CheckX - corners[i].x;
-            float dy1 = CheckY - corners[i].y;
-            float distance1 = sqrt(dx1 * dx1 + dy1 * dy1);
-            
-            if (i == 4) i = -1;
-            int next_i = (i + 1) % 4;
-            
-            float dx2 = CheckX - corners[next_i].x;
-            float dy2 = CheckY  - corners[next_i].y;
-            float distance2 = sqrt(dx2 * dx2 + dy2 * dy2);
-
-            float segmentX = corners[next_i].x - corners[i].x;
-            float segmentY = corners[next_i].y - corners[i].y;
-            float segmentLength = sqrt(segmentX * segmentX + segmentY * segmentY);
-
-            criticalSum = segmentLength + 2 * ballRadius;
-
-            //проверка столкновения с углами
-            if (distance1 < ballRadius + 2.0f) {
-                // Вычисляем нормаль от угла к центру мяча
-                float normalX = dx1 / distance1;
-                float normalY = dy1 / distance1;
-
-                // Отражаем угол мяча относительно нормали
-                float dotProduct = cos(BollAngle) * normalX + sin(BollAngle) * normalY;
-                BollAngle = atan2(sin(BollAngle) - 2 * dotProduct * normalY,
-                cos(BollAngle) - 2 * dotProduct * normalX);
-
-
-                BollAngle += (rand() % 10 - 5) * 0.01f;
-                break;
+            // Корректируем позицию ТОЛЬКО если она была вычислена
+            // Для углов позиция не корректируется - только угол
+            if (platformCollision.newPosX != 0 || platformCollision.newPosY != 0) {
+                BollPosX = platformCollision.newPosX;
+                BollPosY = platformCollision.newPosY;
             }
-            else  //проверка столкновения со сторонами
-            {
-                if (distance1 + distance2 <= criticalSum-3) {
-                    BollPosX = CheckX;
-                    BollPosY = CheckY;
-                    if (cos(BollAngle) > 0 && CheckX + BallSize / 2 < platformX) {
-                        BollPosX = platformX - BallSize - 1;
-                        BollAngle = 3.14159f - BollAngle;
-                    }
-                    else if (cos(BollAngle) < 0 && CheckX + BallSize / 2 > platformX + PlatformWidth) {
-                        BollPosX = platformX + PlatformWidth + 1;
-                        BollAngle = 3.14159f - BollAngle;
-                    }
-                    else {
-                        BollPosY = platformY - BallSize - 1;
-                        BollAngle = -BollAngle;
-                    }
-                }
+            // Для углов ничего не делаем с позицией - мяч продолжит движение по новому углу
 
-
-            }
-        } 
-
-         //проверка столкновения с кирпичами
-        for (int y = 0; y < BrickLines; y++) {
-            for (int x = 0; x < BrickStolbs; x++) {
-                if (brick[x][y].live == true) {
-                    if (CheckY + BallSize >= brick[x][y].posy &&
-                        CheckY <= brick[x][y].posy + brick[x][y].H &&
-                        CheckX + BallSize >= brick[x][y].posx &&
-                        CheckX <= brick[x][y].posx + brick[x][y].W) {
-
-                        float platformCenterX = brick[x][y].posx + brick[x][y].W / 2.0f;
-
-                        BollPosX = CheckX;
-                        BollPosY = CheckY;
-
-                        if (ballCenterX < brick[x][y].posx && cos(BollAngle) > 0) {
-                            BollAngle = 3.14159f - BollAngle;
-                        }
-                        else if (ballCenterX > brick[x][y].posx + (width / BrickStolbs) && cos(BollAngle) < 0) {
-                            BollAngle = 3.14159f - BollAngle;
-                        }
-                        else if (ballCenterY > brick[x][y].posy) {
-                            BollPosY = BollPosY + 10;
-                            BollAngle = -BollAngle;
-                        }
-                        else if (ballCenterY < brick[x][y].posy) {
-                            BollPosY = BollPosY - 10;
-                            BollAngle = -BollAngle;
-                        }
-
-                        BollAngle += (rand() % 10 - 5) * 0.01f;
-
-                        brick[x][y].live = false;
-                    }
-                    else {
-                        BollPosX = NewBollPosX;
-                        BollPosY = NewBollPosY;
-                    }
-                }
-            }
+            collisionOccurred = true;
+            break;
         }
 
+        // Проверка кирпичей
+        bool brickCollisionFound = false;
+        for (int y = 0; y < BrickLines; y++) {
+            for (int x = 0; x < BrickStolbs; x++) {
+                if (brick[x][y].live) {
+                    CollisionResult brickCollision = CheckObjectCollision(
+                        CheckX, CheckY, ballRadius,
+                        BollAngle,
+                        brick[x][y].posx,
+                        brick[x][y].posy,
+                        brick[x][y].W,
+                        brick[x][y].H
+                    );
+
+                    if (brickCollision.collision) {
+                        BollAngle = brickCollision.newAngle;
+                        brick[x][y].live = false;
+                        brickCollisionFound = true;
+
+                        if (brickCollision.newPosX != 0 || brickCollision.newPosY != 0) {
+                            BollPosX = brickCollision.newPosX;
+                            BollPosY = brickCollision.newPosY;
+                        }
+                        collisionOccurred = true;
+                        break;
+                    }
+                }
+            }
+            if (brickCollisionFound) {
+                break;
+            }  
+        }
+
+        if (brickCollisionFound) {
+            break;
+        }
     }
 
-    
+    // Если не было столкновений, перемещаем мяч в новую позицию
+    if (!collisionOccurred) {
+        BollPosX = NewBollPosX;
+        BollPosY = NewBollPosY;
+    }
 
     InvalidateRect(hWnd, NULL, TRUE);
 }
-
 //----------------------------------------Окно-----------------------------------------//
 
 LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
     switch (message) {
 
-    case WM_ERASEBKGND:
-        return 1;
+        case WM_ERASEBKGND:
+            return 1;
 
-    case WM_CREATE:
-        break;
+        case WM_CREATE:
+            break;
 
-    case WM_PAINT:
-        OnPaint(hWnd);
-        break;
+        case WM_PAINT:
+            OnPaint(hWnd);
+            break;
 
-    case WM_TIMER:
-        if (wParam == 1) {
-            GamePlay(hWnd);
-        }
-        break;
-
-    case WM_KEYDOWN:
-        switch (wParam) {
-        case VK_SPACE:
-            if (GameStatus == false) {
-                StartBattleAnimation(hWnd);
+        case WM_TIMER:
+            if (wParam == 1) {
+                GamePlay(hWnd);
             }
             break;
 
-        case VK_LEFT:
-            PlayerVector = -1;
+        case WM_KEYDOWN:
+            switch (wParam) {
+            case VK_SPACE:
+                if (GameStatus == false) {
+                    StartBattleAnimation(hWnd);
+                }
+                break;
+
+            case VK_LEFT:
+                PlayerVector = -1;
+                break;
+
+            case VK_RIGHT:
+                PlayerVector = 1;
+                break;
+
+            case VK_ESCAPE:
+                PostQuitMessage(0);
+                break;
+            }
             break;
 
-        case VK_RIGHT:
-            PlayerVector = 1;
+        case WM_KEYUP:
+            switch (wParam) {
+            case VK_LEFT:
+                if (PlayerVector == -1) {
+                    PlayerVector = 0;
+                }
+                break;
+      
+            case VK_RIGHT:
+                if (PlayerVector == 1) {
+                    PlayerVector = 0;
+                }
+                break;
+            }
             break;
 
-        case VK_ESCAPE:
+        case WM_GETMINMAXINFO:
+        {
+            MINMAXINFO* mmi = (MINMAXINFO*)lParam;
+            mmi->ptMinTrackSize.x = 800;
+            mmi->ptMinTrackSize.y = 600;
+            mmi->ptMaxTrackSize.x = 800;
+            mmi->ptMaxTrackSize.y = 600;
+            return 0;
+        }
+
+        case WM_DESTROY:
             PostQuitMessage(0);
             break;
-        }
-        break;
 
-    case WM_KEYUP:
-        switch (wParam) {
-        case VK_LEFT:
-            if (PlayerVector == -1) {
-                PlayerVector = 0;
-            }
-            break;
-      
-        case VK_RIGHT:
-            if (PlayerVector == 1) {
-                PlayerVector = 0;
-            }
-            break;
-        }
-        break;
-
-    case WM_GETMINMAXINFO:
-    {
-        MINMAXINFO* mmi = (MINMAXINFO*)lParam;
-        mmi->ptMinTrackSize.x = 800;
-        mmi->ptMinTrackSize.y = 600;
-        mmi->ptMaxTrackSize.x = 800;
-        mmi->ptMaxTrackSize.y = 600;
-        return 0;
-    }
-
-    case WM_DESTROY:
-        PostQuitMessage(0);
-        break;
-
-    default:
-        return DefWindowProc(hWnd, message, wParam, lParam);
+        default:
+            return DefWindowProc(hWnd, message, wParam, lParam);
     }
     return 0;
 }
