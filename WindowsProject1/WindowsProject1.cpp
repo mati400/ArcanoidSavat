@@ -38,6 +38,9 @@ float BollAngle = 45.0f * (3.14159f / 180.0f);
 float BollVectorX = 0;
 float BollVectorY = 0;
 
+float criticalSum = 0;
+float checkcriticalSum = 0;
+
 struct brickst {
     int posx = 0;
     int posy = 0;
@@ -164,17 +167,6 @@ void GamePlay(HWND hWnd) {
 
     if (newPlatformX >= 0 && newPlatformX <= width - PlatformWidth) {
         PlayerPosX += static_cast<int>(Speed * PlayerVector);
-        //if (BollPosY + BallSize >= platformY && BollPosY <= platformY + PlatformHeight) {
-        //    // Если мяч находится над платформой по вертикали
-        //    if (BollPosX + BallSize >= platformX && BollPosX <= platformX + PlatformWidth) {
-        //        // Мяч уже столкнулся с платформой - двигаем его вместе с ней
-        //        BollPosX += static_cast<int>(Speed * PlayerVector);
-
-        //        // Ограничиваем позицию мяча, чтобы не выходил за границы экрана
-        //        if (BollPosX < 0) BollPosX = 0;
-        //        if (BollPosX > width - BallSize) BollPosX = width - BallSize;
-        //    }
-        //}
     }
 
     // Движение мяча
@@ -192,7 +184,7 @@ void GamePlay(HWND hWnd) {
         int CheckX = BollPosX + round(DistanceX * t);
         int CheckY = BollPosY + round(DistanceY * t);
 
-
+        bool collision = false;
         //Стены
         if (CheckX <= 0) {
             BollPosX = CheckX+BallSize/2;
@@ -218,7 +210,6 @@ void GamePlay(HWND hWnd) {
         }
 
         //Платформа углы
-        
         struct Corner {
             float x, y;
         };
@@ -231,57 +222,67 @@ void GamePlay(HWND hWnd) {
         };
 
         float ballRadius = BallSize / 2.0f;
+        float ballCenterX = CheckX + BallSize / 2.0f;
+        float ballCenterY = CheckY + BallSize / 2.0f;
 
+        //проверка столкновения с платформой
         for (int i = 0; i < 4; i++) {
-            float dx = BollPosX - corners[i].x;
-            float dy = BollPosY + BallSize / 2.0f; - corners[i].y;
-            float distance = sqrt(dx * dx + dy * dy);
+            float dx1 = CheckX - corners[i].x;
+            float dy1 = CheckY - corners[i].y;
+            float distance1 = sqrt(dx1 * dx1 + dy1 * dy1);
+            
+            if (i == 4) i = -1;
+            int next_i = (i + 1) % 4;
+            
+            float dx2 = CheckX - corners[next_i].x;
+            float dy2 = CheckY  - corners[next_i].y;
+            float distance2 = sqrt(dx2 * dx2 + dy2 * dy2);
 
-            // Если расстояние меньше радиуса мяча + небольшой зазор
-            if (distance < ballRadius + 2.0f) {
+            float segmentX = corners[next_i].x - corners[i].x;
+            float segmentY = corners[next_i].y - corners[i].y;
+            float segmentLength = sqrt(segmentX * segmentX + segmentY * segmentY);
+
+            criticalSum = segmentLength + 2 * ballRadius;
+
+            //проверка столкновения с углами
+            if (distance1 < ballRadius + 2.0f) {
                 // Вычисляем нормаль от угла к центру мяча
-                float normalX = dx / distance;
-                float normalY = dy / distance;
+                float normalX = dx1 / distance1;
+                float normalY = dy1 / distance1;
 
                 // Отражаем угол мяча относительно нормали
                 float dotProduct = cos(BollAngle) * normalX + sin(BollAngle) * normalY;
                 BollAngle = atan2(sin(BollAngle) - 2 * dotProduct * normalY,
-                    cos(BollAngle) - 2 * dotProduct * normalX);
+                cos(BollAngle) - 2 * dotProduct * normalX);
 
 
                 BollAngle += (rand() % 10 - 5) * 0.01f;
                 break;
             }
-            else 
+            else  //проверка столкновения со сторонами
             {
-                if (CheckY + BallSize >= platformY &&
-                    CheckY <= platformY + PlatformHeight &&
-                    CheckX + BallSize >= platformX &&
-                    CheckX <= platformX + PlatformWidth) {
-
+                if (distance1 + distance2 <= criticalSum-3) {
+                    BollPosX = CheckX;
+                    BollPosY = CheckY;
                     if (cos(BollAngle) > 0 && CheckX + BallSize / 2 < platformX) {
-                        BollPosX = platformX - BallSize - 5;
+                        BollPosX = platformX - BallSize - 1;
                         BollAngle = 3.14159f - BollAngle;
                     }
                     else if (cos(BollAngle) < 0 && CheckX + BallSize / 2 > platformX + PlatformWidth) {
-                        BollPosX = platformX + PlatformWidth + 5;
+                        BollPosX = platformX + PlatformWidth + 1;
                         BollAngle = 3.14159f - BollAngle;
                     }
                     else {
                         BollPosY = platformY - BallSize - 1;
                         BollAngle = -BollAngle;
                     }
-
-                    BollAngle += (rand() % 10 - 5) * 0.01f;
-
-                    // Выходим из цикла после обработки столкновения
                 }
+
+
             }
         } 
 
-        
-
-        //кирпичи
+         //проверка столкновения с кирпичами
         for (int y = 0; y < BrickLines; y++) {
             for (int x = 0; x < BrickStolbs; x++) {
                 if (brick[x][y].live == true) {
@@ -290,8 +291,6 @@ void GamePlay(HWND hWnd) {
                         CheckX + BallSize >= brick[x][y].posx &&
                         CheckX <= brick[x][y].posx + brick[x][y].W) {
 
-                        float ballCenterX = CheckX + BallSize / 2.0f;
-                        float ballCenterY = CheckY + BallSize / 2.0f;
                         float platformCenterX = brick[x][y].posx + brick[x][y].W / 2.0f;
 
                         BollPosX = CheckX;
