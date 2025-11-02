@@ -24,7 +24,7 @@ float BollSpeed = 20;
 
 int PlatformWidth = 100;
 int PlatformHeight = 20;
-int Speed = 3;
+int Speed = 5;
 
 //----------------------------------------Техчасть-----------------------------------------//
 
@@ -47,6 +47,12 @@ bool BollOnMouse = false;
 int MouseX = 0;
 int MouseY = 0;
 
+int ManageBigCircleRadius = 100;
+int ManageSmallCircleRadius = 10;
+int radius1 = 0;
+int center2X = 0;
+int center2Y = 0;
+
 int brickCount = BrickLines * BrickStolbs;
 struct brickst {
     int posx = 0;
@@ -68,6 +74,7 @@ void ShutdownGDIPlus()
 {
     GdiplusShutdown(gdiplusToken);
 }
+
 
 void OnPaint(HWND hWnd)
 {
@@ -94,6 +101,9 @@ void OnPaint(HWND hWnd)
     SolidBrush BlackBrush(Color(255, 0, 0, 0));
     SolidBrush BlueBrush(Color(255, 0, 0, 255));
     SolidBrush GreenBrush(Color(255, 0, 255, 0));
+    SolidBrush LightBlue(Color(255, 180, 220, 240));
+    Pen outlinePen(Color(255, 0, 100, 200), 2.0f);
+    Pen GreenLine(Color(255, 0, 255, 0), 2.0f);
 
     // Рисуем платформу
     int platformY = height - 100;
@@ -117,6 +127,34 @@ void OnPaint(HWND hWnd)
     Font font(L"Arial", 12);
     SolidBrush textBrush(Color(255, 0, 0, 0));
     graphics.DrawString(debugText, -1, &font, PointF(10, 10), &textBrush);
+
+    //Поле отладки
+    graphics.FillRectangle(&LightBlue, (width / 10) * (10 - ManageWindowWidhtProcent), 0 , (width / 10) * ManageWindowWidhtProcent,height);
+
+    //большйо круг
+    int ManageCircle1X = (width / 10) * (10 - ManageWindowWidhtProcent) + ((width / 10 * ManageWindowWidhtProcent) / 2) - ManageBigCircleRadius / 2;
+    int ManageCircle1Y = 50;
+    int center1X = ManageCircle1X + ManageBigCircleRadius / 2;
+    int center1Y = ManageCircle1Y + ManageBigCircleRadius / 2;
+    Rect ManageCircle1(ManageCircle1X, ManageCircle1Y, ManageBigCircleRadius, ManageBigCircleRadius);
+    graphics.DrawEllipse(&outlinePen, ManageCircle1);
+
+    //малый круг
+    radius1 = ManageBigCircleRadius / 2;
+    center2X = center1X + (radius1 + ManageSmallCircleRadius - ManageSmallCircleRadius / 2 - 4) * cos(BollAngle) ;
+    center2Y = center1Y + (radius1 + ManageSmallCircleRadius - ManageSmallCircleRadius / 2 - 4) * sin(BollAngle) ;
+    Rect ManageCircle2(
+        center2X - ManageSmallCircleRadius,
+        center2Y - ManageSmallCircleRadius,
+        ManageSmallCircleRadius * 2,
+        ManageSmallCircleRadius * 2
+    );
+    graphics.FillEllipse(&GreenBrush, ManageCircle2);
+
+    //Линия направления
+    Point centerPoint2(center2X, center2Y);
+    Point centerPoint1(center1X, center1Y);
+    graphics.DrawLine(&GreenLine, centerPoint1, centerPoint2);
 
     BitBlt(hdc, 0, 0, width, height, hdcMem, 0, 0, SRCCOPY);
 
