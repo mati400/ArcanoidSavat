@@ -26,12 +26,11 @@ int PlatformWidth = 100;
 int PlatformHeight = 20;
 int Speed = 5;
 
+const int MaxRedLines = 2;
 //----------------------------------------Техчасть-----------------------------------------//
 
 bool GameStatus = false;
 
-int ManageWindowWidhtProcent = 2;
-int ManageWindowWidhtPixel = 10;
 int PlayerPosX = 300;
 int PlayerPosY = 100;
 int PlayerVector = 0;
@@ -42,16 +41,32 @@ float BollAngle = 45.0f * (3.14159f / 180.0f);
 float BollVectorX = 0;
 float BollVectorY = 0;
 
+bool MouseWasUpped = true;
 bool MouseCanTouchBoll = false;
-bool BollOnMouse = false;
+int MouseTarget = 0;
 int MouseX = 0;
 int MouseY = 0;
 
+int center1Y = 0;
+int center1X = 0;
+int ManageWindowWidhtProcent = 2;
+int ManageWindowWidhtPixel = 10;
 int ManageBigCircleRadius = 100;
 int ManageSmallCircleRadius = 10;
 int radius1 = 0;
 int center2X = 0;
 int center2Y = 0;
+
+struct RedLine {
+    int Number = 0;
+    int FirstX = 0;
+    int FirstY = 0;
+    int LastX = 0;
+    int LastY = 0;
+    int NewAngle = 0;
+};
+
+RedLine Line[MaxRedLines];
 
 int brickCount = BrickLines * BrickStolbs;
 struct brickst {
@@ -102,6 +117,7 @@ void OnPaint(HWND hWnd)
     SolidBrush BlueBrush(Color(255, 0, 0, 255));
     SolidBrush GreenBrush(Color(255, 0, 255, 0));
     SolidBrush LightBlue(Color(255, 180, 220, 240));
+    Pen RedPen(Color(255, 0, 0), 2.0f);
     Pen outlinePen(Color(255, 0, 100, 200), 2.0f);
     Pen GreenLine(Color(255, 0, 255, 0), 2.0f);
 
@@ -134,8 +150,8 @@ void OnPaint(HWND hWnd)
     //большйо круг
     int ManageCircle1X = (width / 10) * (10 - ManageWindowWidhtProcent) + ((width / 10 * ManageWindowWidhtProcent) / 2) - ManageBigCircleRadius / 2;
     int ManageCircle1Y = 50;
-    int center1X = ManageCircle1X + ManageBigCircleRadius / 2;
-    int center1Y = ManageCircle1Y + ManageBigCircleRadius / 2;
+    center1X = ManageCircle1X + ManageBigCircleRadius / 2;
+    center1Y = ManageCircle1Y + ManageBigCircleRadius / 2;
     Rect ManageCircle1(ManageCircle1X, ManageCircle1Y, ManageBigCircleRadius, ManageBigCircleRadius);
     graphics.DrawEllipse(&outlinePen, ManageCircle1);
 
@@ -151,10 +167,17 @@ void OnPaint(HWND hWnd)
     );
     graphics.FillEllipse(&GreenBrush, ManageCircle2);
 
-    //Линия направления
+    //Линия направления отладки
     Point centerPoint2(center2X, center2Y);
     Point centerPoint1(center1X, center1Y);
     graphics.DrawLine(&GreenLine, centerPoint1, centerPoint2);
+
+    //Траектория пути
+    for (int i = 0; i < MaxRedLines; i++) {
+        Point Line1(Line[i].FirstX, Line[i].FirstY);
+        Point Line2(Line[i].LastX, Line[i].LastY);
+        graphics.DrawLine(&RedPen, Line1, Line2);
+    }
 
     BitBlt(hdc, 0, 0, width, height, hdcMem, 0, 0, SRCCOPY);
 
@@ -202,7 +225,7 @@ void StopBattleAnimation(HWND hWnd)
 struct CollisionResult {
     bool collision;
     float newAngle;  
-    int newPosX, newPosY;    
+    int newPosX, newPosY;
 };
 
 CollisionResult CheckObjectCollision(float ballCheckX, float ballCheckY, float ballRadius,
@@ -248,14 +271,26 @@ void GamePlay(HWND hWnd) {
     int newPlatformX = platformX + static_cast<int>(Speed * PlayerVector);
     int platformY = height - 100;
 
-    if (MouseCanTouchBoll == true && MouseX > BollPosX-15 && MouseX < BollPosX + BallSize + 15 && MouseY > BollPosY-15 && MouseY < BollPosY + BallSize + 15) {
-        BollPosY = MouseY - BallSize/2;
-        BollPosX = MouseX - BallSize/2;
-        
-        //BollSpeed = 0;
-    }
-        
+    
+    
+    if (MouseCanTouchBoll == true) {
+        if (MouseX > BollPosX - 15 && MouseX < BollPosX + ManageSmallCircleRadius + 15 && MouseY > BollPosY - 15 && MouseY < BollPosY + ManageSmallCircleRadius + 15) {
+            MouseTarget = 1;
+        }
 
+        if (MouseX > center2X - 15 && MouseX < center2X + ManageSmallCircleRadius + 15 && MouseY > center2Y - 15 && MouseY < center2Y + ManageSmallCircleRadius + 15) {
+            MouseTarget = 2;
+        }
+    }
+
+    if (MouseTarget == 1) {
+        BollPosY = MouseY - BallSize / 2;
+        BollPosX = MouseX - BallSize / 2;
+    }
+
+    if (MouseTarget == 2) {
+        BollAngle = atan2(MouseY - center1Y, MouseX - center1X);
+    }
 
     if (newPlatformX >= 0 && newPlatformX <= width - PlatformWidth) {
         PlayerPosX += static_cast<int>(Speed * PlayerVector);
@@ -271,8 +306,88 @@ void GamePlay(HWND hWnd) {
     int steps = max(abs(DistanceX), abs(DistanceY));
     bool collisionOccurred = false;
 
+    
+
+    for (int i = 0; i < MaxRedLines; i++) {
+        
+
+        if (i == 0) {
+            Line[0].FirstX = BollPosX + BallSize / 2;
+            Line[0].FirstY = BollPosY + BallSize / 2;
+            
+            
+            int DistanceX1 = Line[i].LastX - Line[i].FirstX;
+            int DistanceY1 = Line[i].LastY - Line[i].FirstY;
+            int stepsLine = max(abs(DistanceX1), abs(DistanceY1));
+
+            for (int x = 0; x <= stepsLine; x++) {
+
+                double t = (double)i / steps;
+                int CheckX = Line[0].FirstX + round(DistanceX1 * t);
+                int CheckY = Line[0].FirstY + round(DistanceY1 * t);
+
+                CollisionResult LineformCollision = CheckObjectCollision(CheckX, CheckY, 2, BollAngle, platformX, platformY, PlatformWidth, PlatformHeight);
+                if (LineformCollision.collision) {
+                    Line[i].NewAngle = LineformCollision.newAngle;
+                    Line[i].NewAngle += (rand() % 10 - 5) * 0.01f;
+
+                    if (LineformCollision.newPosX != 0 || LineformCollision.newPosY != 0) {
+                        Line[0].LastX = LineformCollision.newPosX;
+                        Line[0].LastY = LineformCollision.newPosY;
+                    }
+
+                    break;
+                }
+                else {
+                    Line[0].LastX = BollPosX + static_cast<int>(100 * cos(BollAngle)) / 2;
+                    Line[0].LastY = BollPosY + static_cast<int>(100 * sin(BollAngle)) / 2;
+                }
+
+            }
+
+            
+        }
+        else
+        {
+            Line[i].FirstX = Line[i - 1].LastX;
+            Line[i].FirstY = Line[i - 1].LastY;
+
+            int DistanceX1 = Line[i].LastX - Line[i].FirstX;
+            int DistanceY1 = Line[i].LastY - Line[i].FirstY;
+            int stepsLine = max(abs(DistanceX1), abs(DistanceY1));
+
+            for (int x = 0; x <= stepsLine; x++) {
+
+                double t = (double)i / steps;
+                int CheckX = Line[i].FirstX + round(DistanceX1 * t);
+                int CheckY = Line[i].FirstY + round(DistanceY1 * t);
+
+                CollisionResult LineformCollision = CheckObjectCollision(CheckX, CheckY, 2, BollAngle, platformX, platformY, PlatformWidth, PlatformHeight);
+                if (LineformCollision.collision) {
+                    Line[i].NewAngle = LineformCollision.newAngle;
+                    Line[i].NewAngle += (rand() % 10 - 5) * 0.01f;
+
+                    if (LineformCollision.newPosX != 0 || LineformCollision.newPosY != 0) {
+                        Line[i].LastX = LineformCollision.newPosX;
+                        Line[i].LastY = LineformCollision.newPosY;
+                    }
+
+                    break;
+                }
+                else {
+                    Line[i].LastX = Line[i - 1].LastX + static_cast<int>(100 * cos(Line[i-1].NewAngle)) / 2;
+                    Line[i].LastY = Line[i - 1].LastY + static_cast<int>(100 * sin(Line[i-1].NewAngle)) / 2;
+                }
+
+            }
+        }
+
+       
+    }
+
     // Проверка столкновений 
     for (int i = 0; i <= steps; i++) {
+
         double t = (double)i / steps;
         int CheckX = BollPosX + round(DistanceX * t);
         int CheckY = BollPosY + round(DistanceY * t);
@@ -281,23 +396,30 @@ void GamePlay(HWND hWnd) {
         float ballCenterX = CheckX + ballRadius;
         float ballCenterY = CheckY + ballRadius;
 
+
         // Стены
         if (ballCenterX - ballRadius <= 0) {
             BollPosX = BollPosX + 1;
             BollAngle = 3.14159f - BollAngle;
             collisionOccurred = true;
+            MouseTarget = 0;
+            MouseCanTouchBoll = false;
             break;
         }
         else if (ballCenterX + ballRadius >= width) {
             BollPosX = BollPosX - 1;
             BollAngle = 3.14159f - BollAngle;
             collisionOccurred = true;
+            MouseTarget = 0;
+            MouseCanTouchBoll = false;
             break;
         }
         else if (ballCenterY - ballRadius <= 0) {
             BollPosY = BollPosY + 1;
             BollAngle = -BollAngle;
             collisionOccurred = true;
+            MouseTarget = 0;
+            MouseCanTouchBoll = false;
             break;
         }
         if (CheckY > height) {
@@ -323,6 +445,8 @@ void GamePlay(HWND hWnd) {
                 BollPosY = platformCollision.newPosY;
             }
 
+            MouseTarget = 0;
+            MouseCanTouchBoll = false;
             collisionOccurred = true;
             break;
         }
@@ -356,11 +480,15 @@ void GamePlay(HWND hWnd) {
                 }
             }
             if (brickCollisionFound) {
+                MouseTarget = 0;
+                MouseCanTouchBoll = false;
                 break;
             }  
         }
 
         if (brickCollisionFound) {
+            MouseTarget = 0;
+            MouseCanTouchBoll = false;
             break;
         }
     }
@@ -433,11 +561,17 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
             break;
 
         case WM_LBUTTONDOWN:
-            MouseCanTouchBoll = true;
+            if (MouseWasUpped == true)
+            {
+                MouseWasUpped = false;
+                MouseCanTouchBoll = true;
+            }
             break;
 
         case WM_LBUTTONUP:
+            MouseWasUpped = true;
             MouseCanTouchBoll = false;
+            MouseTarget = 0;
             break;
 
         case WM_MOUSEMOVE:
