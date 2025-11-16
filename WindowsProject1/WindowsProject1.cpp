@@ -1,10 +1,12 @@
-﻿#include <windows.h>
-#include <iostream>
+﻿#define _USE_MATH_DEFINES
+#define _CRT_SECURE_NO_WARNINGS
+#include <windows.h>
 #include <string>
-#include <vector>
 #include <gdiplus.h>
-#include <cstdlib>
 #include <cmath>
+#include <math.h>
+#include <stdio.h>
+#include <stdlib.h>
 
 #pragma comment(lib, "gdiplus.lib")
 
@@ -19,17 +21,19 @@ const int BrickLines = 3;
 const int BrickStolbs = 10;
 int BrickHeigth = 25;
 
-int BallSize = 25;
-float BollSpeed = 20;
+int BallSize = 50;
+float BollSpeed = 20.0f;
 
 int PlatformWidth = 100;
 int PlatformHeight = 20;
 int Speed = 5;
 
 const int MaxRedLines = 4;
+
 //----------------------------------------Техчасть-----------------------------------------//
 
 bool GameStatus = false;
+const float PI = 3.14159265358979323846f;
 
 int PlayerPosX = 300;
 int PlayerPosY = 100;
@@ -37,10 +41,7 @@ int PlayerVector = 0;
 
 int BollPosX = 300;
 int BollPosY = 300;
-float BollAngle = 45.0f * (3.14f / 180.0f);
-float BollNextAngle = BollAngle;
-float BollVectorX = 0;
-float BollVectorY = 0;
+float BollAngle = 45.0f * (PI / 180.0f);
 
 bool MouseWasUpped = true;
 bool MouseCanTouchBoll = false;
@@ -51,15 +52,12 @@ int MouseY = 0;
 int center1Y = 0;
 int center1X = 0;
 int ManageWindowWidhtProcent = 2;
-int ManageWindowWidhtPixel = 10;
 int ManageBigCircleRadius = 100;
 int ManageSmallCircleRadius = 10;
-int radius1 = 0;
 int center2X = 0;
 int center2Y = 0;
 
 struct RedLine {
-    int Number = 0;
     int FirstX = 0;
     int FirstY = 0;
     int LastX = 0;
@@ -69,12 +67,11 @@ struct RedLine {
 
 RedLine Line[MaxRedLines];
 
-int brickCount = BrickLines * BrickStolbs;
 struct brickst {
     int posx = 0;
     int posy = 0;
     int H = 0;
-    int W = 0; 
+    int W = 0;
     bool live = true;
 };
 
@@ -90,7 +87,6 @@ void ShutdownGDIPlus()
 {
     GdiplusShutdown(gdiplusToken);
 }
-
 
 void OnPaint(HWND hWnd)
 {
@@ -121,6 +117,9 @@ void OnPaint(HWND hWnd)
     Pen RedPen(Color(255, 0, 0), 2.0f);
     Pen outlinePen(Color(255, 0, 100, 200), 2.0f);
     Pen GreenLine(Color(255, 0, 255, 0), 2.0f);
+    SolidBrush textBrush(Color(255, 0, 0, 0));
+
+    Font font(L"Arial", 12);
 
     // Рисуем платформу
     int platformY = height - 100;
@@ -139,21 +138,38 @@ void OnPaint(HWND hWnd)
     }
 
     // Отладка
-    WCHAR debugText[100];
-    swprintf(debugText, 100, L"Angle: %.2f°", Line[0].NewAngle * (180.0f / 3.14f));
-    Font font(L"Arial", 12);
-    SolidBrush textBrush(Color(255, 0, 0, 0));
-    graphics.DrawString(debugText, -1, &font, PointF(10, 10), &textBrush);
 
     WCHAR debugText2[100];
-    swprintf(debugText2, 100, L"Angle: %.2f°", BollAngle * (180.0f / 3.14f));
-    graphics.DrawString(debugText2, -1, &font, PointF(150, 10), &textBrush);
+    swprintf(debugText2, 100, L"Angle: %.2f°", BollAngle * (180.0f / PI));
+    graphics.DrawString(debugText2, -1, &font, PointF(10.0f, 10.0f), &textBrush);
+
+    WCHAR debugText[100];
+    swprintf(debugText, 100, L"Angle: %.2f°", Line[0].NewAngle * (180.0f / PI));
+    graphics.DrawString(debugText, -1, &font, PointF(130.0f, 10.0f), &textBrush);
+
+    if (Line[1].NewAngle)
+    {
+        WCHAR debugText[100];
+        swprintf(debugText, 100, L"Angle: %.2f°", Line[1].NewAngle * (180.0f / PI));
+        graphics.DrawString(debugText, -1, &font, PointF(250.0f, 10.0f), &textBrush);
+    }
+
+    if (Line[2].NewAngle) {
+        WCHAR debugText[100];
+        swprintf(debugText, 100, L"Angle: %.2f°", Line[2].NewAngle * (180.0f / PI));
+        graphics.DrawString(debugText, -1, &font, PointF(380.0f, 10.0f), &textBrush);
+    }
 
     //Поле отладки
-    graphics.FillRectangle(&LightBlue, (width / 10) * (10 - ManageWindowWidhtProcent), 0 , (width / 10) * ManageWindowWidhtProcent,height);
+    graphics.FillRectangle(&LightBlue,
+        static_cast<int>((width / 10.0f) * (10 - ManageWindowWidhtProcent)),
+        0,
+        static_cast<int>((width / 10.0f) * ManageWindowWidhtProcent),
+        height);
 
-    //большйо круг
-    int ManageCircle1X = (width / 10) * (10 - ManageWindowWidhtProcent) + ((width / 10 * ManageWindowWidhtProcent) / 2) - ManageBigCircleRadius / 2;
+    //большой круг
+    int ManageCircle1X = static_cast<int>((width / 10.0f) * (10 - ManageWindowWidhtProcent) +
+        ((width / 10.0f * ManageWindowWidhtProcent) / 2.0f) - ManageBigCircleRadius / 2.0f);
     int ManageCircle1Y = 50;
     center1X = ManageCircle1X + ManageBigCircleRadius / 2;
     center1Y = ManageCircle1Y + ManageBigCircleRadius / 2;
@@ -161,9 +177,9 @@ void OnPaint(HWND hWnd)
     graphics.DrawEllipse(&outlinePen, ManageCircle1);
 
     //малый круг
-    radius1 = ManageBigCircleRadius / 2;
-    center2X = center1X + (radius1 + ManageSmallCircleRadius - ManageSmallCircleRadius / 2 - 4) * cos(BollAngle) ;
-    center2Y = center1Y + (radius1 + ManageSmallCircleRadius - ManageSmallCircleRadius / 2 - 4) * sin(BollAngle) ;
+    int radius1 = ManageBigCircleRadius / 2;
+    center2X = static_cast<int>(center1X + (radius1 + ManageSmallCircleRadius - ManageSmallCircleRadius / 2.0f - 4.0f) * cos(BollAngle));
+    center2Y = static_cast<int>(center1Y + (radius1 + ManageSmallCircleRadius - ManageSmallCircleRadius / 2.0f - 4.0f) * sin(BollAngle));
     Rect ManageCircle2(
         center2X - ManageSmallCircleRadius,
         center2Y - ManageSmallCircleRadius,
@@ -199,7 +215,7 @@ void brickcreate(HWND hWnd) {
     RECT rect;
     GetClientRect(hWnd, &rect);
     int width = rect.right - rect.left;
-    int GameWight = (width / 10) * (10 - ManageWindowWidhtProcent);
+    int GameWight = static_cast<int>((width / 10.0f) * (10 - ManageWindowWidhtProcent));
 
     for (int y = 0; y < BrickLines; y++)
     {
@@ -226,10 +242,9 @@ void StopBattleAnimation(HWND hWnd)
     KillTimer(hWnd, 1);
 }
 
-
 struct CollisionResult {
     bool collision;
-    float newAngle;  
+    float newAngle;
     int newPosX, newPosY;
 };
 
@@ -258,19 +273,19 @@ CollisionResult CheckObjectCollision(float ballCheckX, float ballCheckY, float b
         float bottomDist = objY + objHeight - ballCenterY;
 
         float minDist = min(min(leftDist, rightDist), min(topDist, bottomDist));
-        float normalX = 0, normalY = 0;
+        float normalX = 0.0f, normalY = 0.0f;
 
         if (minDist == leftDist) {
-            normalX = -1; // Левая сторона
+            normalX = -1.0f; // Левая сторона
         }
         else if (minDist == rightDist) {
-            normalX = 1;  // Правая сторона
+            normalX = 1.0f;  // Правая сторона
         }
         else if (minDist == topDist) {
-            normalY = -1; // Верхняя сторона
+            normalY = -1.0f; // Верхняя сторона
         }
         else {
-            normalY = 1;  // Нижняя сторона
+            normalY = 1.0f;  // Нижняя сторона
         }
 
         // углы
@@ -284,7 +299,7 @@ CollisionResult CheckObjectCollision(float ballCheckX, float ballCheckY, float b
             float cornerY = corners[i][1];
             float cornerDx = ballCenterX - cornerX;
             float cornerDy = ballCenterY - cornerY;
-            float cornerDist = sqrt(cornerDx * cornerDx + cornerDy * cornerDy);
+            float cornerDist = sqrtf(cornerDx * cornerDx + cornerDy * cornerDy);
 
             if (cornerDist < minDist + 5.0f && cornerDist < ballRadius) {
                 if (cornerX == objX && cornerY == objY) {
@@ -303,14 +318,14 @@ CollisionResult CheckObjectCollision(float ballCheckX, float ballCheckY, float b
                 break;
             }
         }
-        float VectorX = cos(currentBallAngle);
-        float VectorY = sin(currentBallAngle);
+        float VectorX = cosf(currentBallAngle);
+        float VectorY = sinf(currentBallAngle);
         float dot = VectorX * normalX + VectorY * normalY;
 
         if (dot < 0) {
-            float reflectX = VectorX - 2 * dot * normalX;
-            float reflectY = VectorY - 2 * dot * normalY;
-            result.newAngle = atan2(reflectY, reflectX);
+            float reflectX = VectorX - 2.0f * dot * normalX;
+            float reflectY = VectorY - 2.0f * dot * normalY;
+            result.newAngle = atan2f(reflectY, reflectX);
         }
         else {
             result.newAngle = currentBallAngle;
@@ -328,16 +343,14 @@ void GamePlay(HWND hWnd) {
     RECT rect;
     GetClientRect(hWnd, &rect);
     int MainWidht = rect.right - rect.left;
-    int width = (MainWidht / 10) * (10 - ManageWindowWidhtProcent);
+    int width = static_cast<int>((MainWidht / 10.0f) * (10 - ManageWindowWidhtProcent));
     int height = rect.bottom - rect.top;
-    
+
     // Движение платформы
     int platformX = PlayerPosX;
-    int newPlatformX = platformX + static_cast<int>(Speed * PlayerVector);
+    int newPlatformX = platformX + static_cast<int>(static_cast<float>(Speed) * static_cast<float>(PlayerVector));
     int platformY = height - 100;
 
-    
-    
     if (MouseCanTouchBoll == true) {
         if (MouseX > BollPosX - 15 && MouseX < BollPosX + ManageSmallCircleRadius + 15 && MouseY > BollPosY - 15 && MouseY < BollPosY + ManageSmallCircleRadius + 15) {
             MouseTarget = 1;
@@ -354,17 +367,16 @@ void GamePlay(HWND hWnd) {
     }
 
     if (MouseTarget == 2) {
-        BollAngle = atan2(MouseY - center1Y, MouseX - center1X);
+        BollAngle = atan2f(static_cast<float>(MouseY - center1Y), static_cast<float>(MouseX - center1X));
     }
 
     if (newPlatformX >= 0 && newPlatformX <= width - PlatformWidth) {
-        PlayerPosX += static_cast<int>(Speed * PlayerVector);
+        PlayerPosX += static_cast<int>(static_cast<float>(Speed) * static_cast<float>(PlayerVector));
     }
-    
 
     // Движение мяча
-    int NewBollPosX = BollPosX + static_cast<int>(BollSpeed * cos(BollAngle)) / 2;
-    int NewBollPosY = BollPosY + static_cast<int>(BollSpeed * sin(BollAngle)) / 2;
+    int NewBollPosX = BollPosX + static_cast<int>((BollSpeed * cosf(BollAngle)) / 2.0f);
+    int NewBollPosY = BollPosY + static_cast<int>((BollSpeed * sinf(BollAngle)) / 2.0f);
 
     int DistanceX = NewBollPosX - BollPosX;
     int DistanceY = NewBollPosY - BollPosY;
@@ -375,34 +387,32 @@ void GamePlay(HWND hWnd) {
     // Проверка столкновений 
     for (int i = 0; i <= steps; i++) {
 
-        double t = (double)i / steps;
-        int CheckX = BollPosX + round(DistanceX * t);
-        int CheckY = BollPosY + round(DistanceY * t);
+        double t = static_cast<double>(i) / static_cast<double>(steps);
+        int CheckX = BollPosX + static_cast<int>(round(static_cast<double>(DistanceX) * t));
+        int CheckY = BollPosY + static_cast<int>(round(static_cast<double>(DistanceY) * t));
 
-        float ballRadius = BallSize / 2.0f;
-        float ballCenterX = CheckX + ballRadius;
-        float ballCenterY = CheckY + ballRadius;
+        float ballRadius = static_cast<float>(BallSize) / 2.0f;
+        float ballCenterX = static_cast<float>(CheckX) + ballRadius;
+        float ballCenterY = static_cast<float>(CheckY) + ballRadius;
 
-
-        // Стены
-        if (ballCenterX - ballRadius <= 0) {
-            BollPosX = BollPosX + 1;
-            BollAngle = 3.14f - BollAngle;
+        if (ballCenterX - ballRadius <= 0.0f) {
+            BollPosX = static_cast<int>(ballRadius);
+            BollAngle = PI - BollAngle;
             collisionOccurred = true;
             MouseTarget = 0;
             MouseCanTouchBoll = false;
             break;
         }
-        else if (ballCenterX + ballRadius >= width) {
-            BollPosX = BollPosX - 1;
-            BollAngle = 3.14f - BollAngle;
+        else if (ballCenterX + ballRadius >= static_cast<float>(width)) {
+            BollPosX = width - BallSize - 1;
+            BollAngle = PI - BollAngle;
             collisionOccurred = true;
             MouseTarget = 0;
             MouseCanTouchBoll = false;
             break;
         }
-        else if (ballCenterY - ballRadius <= 0) {
-            BollPosY = BollPosY + 1;
+        else if (ballCenterY - ballRadius <= 0.0f) {
+            BollPosY = static_cast<int>(ballRadius);
             BollAngle = -BollAngle;
             collisionOccurred = true;
             MouseTarget = 0;
@@ -412,7 +422,7 @@ void GamePlay(HWND hWnd) {
         if (CheckY > height) {
             BollPosX = width / 2;
             BollPosY = height / 2;
-            BollAngle = 45.0f * (3.14f / 180.0f);
+            BollAngle = 45.0f * (PI / 180.0f);
             StopBattleAnimation(hWnd);
             collisionOccurred = true;
             break;
@@ -420,12 +430,13 @@ void GamePlay(HWND hWnd) {
 
         // Проверка столкновения с платформой
         CollisionResult platformCollision = CheckObjectCollision(
-            CheckX, CheckY, ballRadius, BollAngle, platformX, platformY, PlatformWidth, PlatformHeight
+            static_cast<float>(CheckX), static_cast<float>(CheckY), ballRadius, BollAngle,
+            static_cast<float>(platformX), static_cast<float>(platformY),
+            static_cast<float>(PlatformWidth), static_cast<float>(PlatformHeight)
         );
 
         if (platformCollision.collision) {
             BollAngle = platformCollision.newAngle;
-            //BollAngle += (rand() % 10 - 5) * 0.01f;
 
             if (platformCollision.newPosX != 0 || platformCollision.newPosY != 0) {
                 BollPosX = platformCollision.newPosX;
@@ -444,12 +455,12 @@ void GamePlay(HWND hWnd) {
             for (int x = 0; x < BrickStolbs; x++) {
                 if (brick[x][y].live) {
                     CollisionResult brickCollision = CheckObjectCollision(
-                        CheckX, CheckY, ballRadius,
+                        static_cast<float>(CheckX), static_cast<float>(CheckY), ballRadius,
                         BollAngle,
-                        brick[x][y].posx,
-                        brick[x][y].posy,
-                        brick[x][y].W,
-                        brick[x][y].H
+                        static_cast<float>(brick[x][y].posx),
+                        static_cast<float>(brick[x][y].posy),
+                        static_cast<float>(brick[x][y].W),
+                        static_cast<float>(brick[x][y].H)
                     );
 
                     if (brickCollision.collision) {
@@ -470,7 +481,7 @@ void GamePlay(HWND hWnd) {
                 MouseTarget = 0;
                 MouseCanTouchBoll = false;
                 break;
-            }  
+            }
         }
 
         if (brickCollisionFound) {
@@ -485,7 +496,6 @@ void GamePlay(HWND hWnd) {
         BollPosY = NewBollPosY;
     }
 
-   
     //проверка колизии пути
     for (int i = 0; i < MaxRedLines; i++) {
         Line[i].FirstX = 0;
@@ -508,8 +518,8 @@ void GamePlay(HWND hWnd) {
     }
 
     for (int prediction = 0; prediction < maxPredictions && lineIndex < MaxRedLines; prediction++) {
-        int nextPredictPosX = predictPosX + static_cast<int>(BollSpeed * 39 * cos(predictAngle)) / 2;
-        int nextPredictPosY = predictPosY + static_cast<int>(BollSpeed * 39 * sin(predictAngle)) / 2;
+        int nextPredictPosX = predictPosX + static_cast<int>((BollSpeed * 39.0f * cosf(predictAngle)) / 2.0f);
+        int nextPredictPosY = predictPosY + static_cast<int>((BollSpeed * 39.0f * sinf(predictAngle)) / 2.0f);
 
         bool collisionFound = false;
         int collisionX = 0, collisionY = 0;
@@ -527,66 +537,67 @@ void GamePlay(HWND hWnd) {
         }
 
         for (int i = 0; i <= predictSteps && !collisionFound; i++) {
-            double t = (double)i / predictSteps;
-            int checkX = predictPosX + round(predictDistanceX * t);
-            int checkY = predictPosY + round(predictDistanceY * t);
+            double t = static_cast<double>(i) / static_cast<double>(predictSteps);
+            int checkX = predictPosX + static_cast<int>(round(static_cast<double>(predictDistanceX) * t));
+            int checkY = predictPosY + static_cast<int>(round(static_cast<double>(predictDistanceY) * t));
 
-            float ballRadius = BallSize / 2.0f;
+            float ballRadius = static_cast<float>(BallSize) / 2.0f;
 
-            float ballCenterX = checkX + ballRadius;
-            float ballCenterY = checkY + ballRadius;
+            float ballCenterX = static_cast<float>(checkX) + ballRadius;
+            float ballCenterY = static_cast<float>(checkY) + ballRadius;
 
-            if (ballCenterX - ballRadius <= 0) {
+            if (ballCenterX - ballRadius <= 0.0f) {
                 // Левая стена
                 collisionFound = true;
-                newPredictAngle = 3.14159f - predictAngle;
+                newPredictAngle = static_cast<float>(M_PI) - predictAngle;
                 Line[lineIndex].NewAngle = newPredictAngle;
-                collisionX = ballRadius;
-                collisionY = ballCenterY;
+                collisionX = static_cast<int>(ballRadius);
+                collisionY = static_cast<int>(ballCenterY);
                 predictPosX = 1;
                 predictPosY = checkY;
                 break;
             }
-            else if (ballCenterX + ballRadius >= width) {
+            else if (ballCenterX + ballRadius >= static_cast<float>(width)) {
                 // Правая стена
                 collisionFound = true;
-                newPredictAngle = 3.14159f - predictAngle;
+                newPredictAngle = static_cast<float>(M_PI) - predictAngle;
                 Line[lineIndex].NewAngle = newPredictAngle;
-                collisionX = width - ballRadius;
-                collisionY = ballCenterY;
+                collisionX = width - static_cast<int>(ballRadius);
+                collisionY = static_cast<int>(ballCenterY);
                 predictPosX = width - BallSize - 1;
                 predictPosY = checkY;
                 break;
             }
-            else if (ballCenterY - ballRadius <= 0) {
+            else if (ballCenterY - ballRadius <= 0.0f) {
                 // Верхняя стена
                 collisionFound = true;
                 newPredictAngle = -predictAngle;
                 Line[lineIndex].NewAngle = newPredictAngle;
-                collisionX = ballCenterX;
-                collisionY = ballRadius;
+                collisionX = static_cast<int>(ballCenterX);
+                collisionY = static_cast<int>(ballRadius);
                 predictPosX = checkX;
                 predictPosY = 1;
                 break;
             }
-            else if (ballCenterY + ballRadius >= height) {
+            else if (ballCenterY + ballRadius >= static_cast<float>(height)) {
                 // Нижняя стена
                 collisionFound = true;
-                collisionX = ballCenterX;
-                collisionY = height - ballRadius;
+                collisionX = static_cast<int>(ballCenterX);
+                collisionY = height - static_cast<int>(ballRadius);
                 break;
             }
 
             // Проверка столкновения с платформой
             CollisionResult platformCollision = CheckObjectCollision(
-                checkX, checkY, ballRadius, predictAngle,
-                PlayerPosX, platformY, PlatformWidth, PlatformHeight
+                static_cast<float>(checkX), static_cast<float>(checkY), ballRadius, predictAngle,
+                static_cast<float>(PlayerPosX), static_cast<float>(platformY),
+                static_cast<float>(PlatformWidth), static_cast<float>(PlatformHeight)
             );
 
             if (platformCollision.collision) {
                 collisionFound = true;
-                collisionX = checkX + ballRadius;
-                collisionY = checkY + ballRadius;
+                collisionX = checkX + static_cast<int>(ballRadius);
+                collisionY = checkY + static_cast<int>(ballRadius);
                 Line[lineIndex].NewAngle = platformCollision.newAngle;
                 newPredictAngle = platformCollision.newAngle;
                 predictPosX = platformCollision.newPosX;
@@ -599,15 +610,15 @@ void GamePlay(HWND hWnd) {
                 for (int x = 0; x < BrickStolbs && !collisionFound; x++) {
                     if (brick[x][y].live) {
                         CollisionResult brickCollision = CheckObjectCollision(
-                            checkX, checkY, ballRadius, predictAngle,
-                            brick[x][y].posx, brick[x][y].posy,
-                            brick[x][y].W, brick[x][y].H
+                            static_cast<float>(checkX), static_cast<float>(checkY), ballRadius, predictAngle,
+                            static_cast<float>(brick[x][y].posx), static_cast<float>(brick[x][y].posy),
+                            static_cast<float>(brick[x][y].W), static_cast<float>(brick[x][y].H)
                         );
 
                         if (brickCollision.collision) {
                             collisionFound = true;
-                            collisionX = checkX + ballRadius;
-                            collisionY = checkY + ballRadius;
+                            collisionX = checkX + static_cast<int>(ballRadius);
+                            collisionY = checkY + static_cast<int>(ballRadius);
                             Line[lineIndex].NewAngle = brickCollision.newAngle;
                             newPredictAngle = brickCollision.newAngle;
                             predictPosX = brickCollision.newPosX;
@@ -646,109 +657,107 @@ void GamePlay(HWND hWnd) {
 
     InvalidateRect(hWnd, NULL, TRUE);
 }
+
 //----------------------------------------Окно-----------------------------------------//
 
 LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
     switch (message) {
 
-        case WM_ERASEBKGND:
-            return 1;
+    case WM_ERASEBKGND:
+        return 1;
 
-        case WM_CREATE:
-            break;
+    case WM_CREATE:
+        break;
 
-        case WM_PAINT:
-            OnPaint(hWnd);
-            break;
+    case WM_PAINT:
+        OnPaint(hWnd);
+        break;
 
-        case WM_TIMER:
-            if (wParam == 1) {
-                GamePlay(hWnd);
-            }
-            break;
-
-        case WM_KEYDOWN:
-            switch (wParam) {
-            case VK_SPACE:
-                if (GameStatus == false) {
-                    StartBattleAnimation(hWnd);
-                }
-                break;
-
-            case VK_LEFT:
-                PlayerVector = -1;
-                break;
-
-            case VK_RIGHT:
-                PlayerVector = 1;
-                break;
-
-            case VK_ESCAPE:
-                PostQuitMessage(0);
-                break;
-            }
-            break;
-
-        case WM_KEYUP:
-            switch (wParam) {
-            case VK_LEFT:
-                if (PlayerVector == -1) {
-                    PlayerVector = 0;
-                }
-                break;
-      
-            case VK_RIGHT:
-                if (PlayerVector == 1) {
-                    PlayerVector = 0;
-                }
-                break;
-            }
-            break;
-
-        case WM_LBUTTONDOWN:
-            if (MouseWasUpped == true)
-            {
-                MouseWasUpped = false;
-                MouseCanTouchBoll = true;
-            }
-            break;
-
-        case WM_LBUTTONUP:
-            MouseWasUpped = true;
-            MouseCanTouchBoll = false;
-            MouseTarget = 0;
-            break;
-
-        case WM_MOUSEMOVE:
-            MouseX = LOWORD(lParam);
-            MouseY = HIWORD(lParam);
-            break;
-
-        case MOUSEEVENTF_RIGHTDOWN:
-            break;
-
-        case WM_GETMINMAXINFO:
-        {
-            MINMAXINFO* mmi = (MINMAXINFO*)lParam;
-            mmi->ptMinTrackSize.x = 800;
-            mmi->ptMinTrackSize.y = 600;
-            mmi->ptMaxTrackSize.x = 800;
-            mmi->ptMaxTrackSize.y = 600;
-            return 0;
+    case WM_TIMER:
+        if (wParam == 1) {
+            GamePlay(hWnd);
         }
+        break;
 
-        case WM_DESTROY:
+    case WM_KEYDOWN:
+        switch (wParam) {
+        case VK_SPACE:
+            if (GameStatus == false) {
+                StartBattleAnimation(hWnd);
+            }
+            break;
+
+        case VK_LEFT:
+            PlayerVector = -1;
+            break;
+
+        case VK_RIGHT:
+            PlayerVector = 1;
+            break;
+
+        case VK_ESCAPE:
             PostQuitMessage(0);
             break;
+        }
+        break;
 
-        default:
-            return DefWindowProc(hWnd, message, wParam, lParam);
+    case WM_KEYUP:
+        switch (wParam) {
+        case VK_LEFT:
+            if (PlayerVector == -1) {
+                PlayerVector = 0;
+            }
+            break;
+
+        case VK_RIGHT:
+            if (PlayerVector == 1) {
+                PlayerVector = 0;
+            }
+            break;
+        }
+        break;
+
+    case WM_LBUTTONDOWN:
+        if (MouseWasUpped == true)
+        {
+            MouseWasUpped = false;
+            MouseCanTouchBoll = true;
+        }
+        break;
+
+    case WM_LBUTTONUP:
+        MouseWasUpped = true;
+        MouseCanTouchBoll = false;
+        MouseTarget = 0;
+        break;
+
+    case WM_MOUSEMOVE:
+        MouseX = LOWORD(lParam);
+        MouseY = HIWORD(lParam);
+        break;
+
+    case WM_GETMINMAXINFO:
+    {
+        MINMAXINFO* mmi = (MINMAXINFO*)lParam;
+        mmi->ptMinTrackSize.x = 800;
+        mmi->ptMinTrackSize.y = 600;
+        mmi->ptMaxTrackSize.x = 800;
+        mmi->ptMaxTrackSize.y = 600;
+        return 0;
+    }
+
+    case WM_DESTROY:
+        PostQuitMessage(0);
+        break;
+
+    default:
+        return DefWindowProc(hWnd, message, wParam, lParam);
     }
     return 0;
 }
 
-int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nCmdShow)
+int WINAPI WinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, _In_ LPSTR lpCmdLine, _In_ int nCmdShow)
 {
     InitGDIPlus();
 
